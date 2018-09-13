@@ -9,7 +9,7 @@ ifeq ($(CHIP_FAMILY), samd51)
 COMMON_FLAGS = -mthumb -mcpu=cortex-m4 -O2 -g -DSAMD51
 endif
 WFLAGS = \
--Werror -Wall -Wstrict-prototypes \
+-Wall -Wstrict-prototypes \
 -Werror-implicit-function-declaration -Wpointer-arith -std=gnu99 \
 -ffunction-sections -fdata-sections -Wchar-subscripts -Wcomment -Wformat=2 \
 -Wimplicit-int -Wmain -Wparentheses -Wsequence-point -Wreturn-type -Wswitch \
@@ -24,6 +24,8 @@ CFLAGS = $(COMMON_FLAGS) \
 --param max-inline-insns-single=500 \
 -fno-strict-aliasing -fdata-sections -ffunction-sections \
 -D__$(CHIP_VARIANT)__ \
+-DUSE_ETHERNET=$(ETHERNET_BOOT) \
+-D__$(CHIP_FAMILY)__ \
 $(WFLAGS)
 
 UF2_VERSION_BASE = $(shell git describe --dirty --always --tags)
@@ -75,10 +77,27 @@ SOURCES = $(COMMON_SRC) \
 	src/uart_driver.c \
 	src/hid.c \
 
+ifeq ($(ETHERNET_BOOT), 1)
+INCLUDES += -Ilib/ioLibrary_Driver/Ethernet \
+			-Ilib/ioLibrary_Driver/Ethernet/W5500 \
+			-Ilib/ioLibrary_Driver/Internet/DNS
+
+SOURCES += \
+	src/spi.c \
+	src/ethernet.c
+
+ETHERNET_SOURCES += \
+	lib/ioLibrary_Driver/Ethernet/socket.c \
+	lib/ioLibrary_Driver/Ethernet/W5500/w5500.c \
+	lib/ioLibrary_Driver/Ethernet/wizchip_conf.c \
+	lib/ioLibrary_Driver/Internet/DNS/dns.c
+endif
+
 SELF_SOURCES = $(COMMON_SRC) \
 	src/selfmain.c
 
 OBJECTS = $(patsubst src/%.c,$(BUILD_PATH)/%.o,$(SOURCES))
+OBJECTS += $(patsubst lib/ioLibrary_Driver/%.c,$(BUILD_PATH)/ioLibrary_Driver/%.o,$(ETHERNET_SOURCES))
 SELF_OBJECTS = $(patsubst src/%.c,$(BUILD_PATH)/%.o,$(SELF_SOURCES)) $(BUILD_PATH)/selfdata.o
 
 NAME=bootloader-$(BOARD)-$(UF2_VERSION_BASE)
@@ -112,6 +131,8 @@ selflogs:
 dirs:
 	@echo "Building $(BOARD)"
 	-@mkdir -p $(BUILD_PATH)
+	-@mkdir -p $(BUILD_PATH)/ioLibrary_Driver/Ethernet/W5500
+	-@mkdir -p $(BUILD_PATH)/ioLibrary_Driver/Internet/DNS
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CC) -L$(BUILD_PATH) $(LDFLAGS) \
@@ -133,6 +154,10 @@ $(SELF_EXECUTABLE): $(SELF_OBJECTS)
 	python2 lib/uf2/utils/uf2conv.py -b $(BOOTLOADER_SIZE) -c -o $@ $(BUILD_PATH)/update-$(NAME).bin
 
 $(BUILD_PATH)/%.o: src/%.c $(wildcard inc/*.h boards/*/*.h) $(BUILD_PATH)/uf2_version.h
+	echo "$<"
+	$(CC) $(CFLAGS) $(BLD_EXTA_FLAGS) $(INCLUDES) $< -o $@
+
+$(BUILD_PATH)/ioLibrary_Driver/%.o: lib/ioLibrary_Driver/%.c $(wildcard inc/*.h boards/*/*.h) $(BUILD_PATH)/uf2_version.h
 	echo "$<"
 	$(CC) $(CFLAGS) $(BLD_EXTA_FLAGS) $(INCLUDES) $< -o $@
 

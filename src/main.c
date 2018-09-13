@@ -195,6 +195,10 @@ int main(void) {
 
     usb_init();
 
+#if USE_ETHERNET
+    ethernet_init();
+#endif
+
     // not enumerated yet
     RGBLED_set_color(COLOR_START);
     led_tick_step = 10;

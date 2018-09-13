@@ -13,6 +13,8 @@
 #include "usart_sam_ba.h"
 #include <stdio.h>
 #include <string.h>
+#include "ethernet.h"
+#include "spi.h"
 
 #undef DISABLE
 #undef ENABLE
