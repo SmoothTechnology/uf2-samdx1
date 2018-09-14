@@ -37,8 +37,9 @@ SELF_LINKER_SCRIPT=scripts/samd21j18a_self.ld
 endif
 
 ifeq ($(CHIP_FAMILY), samd51)
-LINKER_SCRIPT=scripts/samd51j19a.ld
-BOOTLOADER_SIZE=16384
+
+LINKER_SCRIPT=scripts/samd51j19a_ethernet.ld
+BOOTLOADER_SIZE=32768
 SELF_LINKER_SCRIPT=scripts/samd51j19a_self.ld
 endif
 
@@ -80,7 +81,8 @@ SOURCES = $(COMMON_SRC) \
 ifeq ($(ETHERNET_BOOT), 1)
 INCLUDES += -Ilib/ioLibrary_Driver/Ethernet \
 			-Ilib/ioLibrary_Driver/Ethernet/W5500 \
-			-Ilib/ioLibrary_Driver/Internet/DNS
+			-Ilib/ioLibrary_Driver/Internet/DNS \
+			-Ilib/ioLibrary_Driver/Internet/DHCP
 
 SOURCES += \
 	src/spi.c \
@@ -90,7 +92,8 @@ ETHERNET_SOURCES += \
 	lib/ioLibrary_Driver/Ethernet/socket.c \
 	lib/ioLibrary_Driver/Ethernet/W5500/w5500.c \
 	lib/ioLibrary_Driver/Ethernet/wizchip_conf.c \
-	lib/ioLibrary_Driver/Internet/DNS/dns.c
+	lib/ioLibrary_Driver/Internet/DNS/dns.c \
+	lib/ioLibrary_Driver/Internet/DHCP/dhcp.c
 endif
 
 SELF_SOURCES = $(COMMON_SRC) \
@@ -133,6 +136,7 @@ dirs:
 	-@mkdir -p $(BUILD_PATH)
 	-@mkdir -p $(BUILD_PATH)/ioLibrary_Driver/Ethernet/W5500
 	-@mkdir -p $(BUILD_PATH)/ioLibrary_Driver/Internet/DNS
+	-@mkdir -p $(BUILD_PATH)/ioLibrary_Driver/Internet/DHCP
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CC) -L$(BUILD_PATH) $(LDFLAGS) \

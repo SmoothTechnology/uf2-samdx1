@@ -36,12 +36,20 @@ static const char fullVersion[] = "v" SAM_BA_VERSION " [Arduino:XYZ] " __DATE__ 
 volatile bool b_terminal_mode = false;
 #endif
 volatile bool b_sam_ba_interface_usart = false;
+volatile bool b_sam_ba_interface_ethernet = false;
 
 void sam_ba_monitor_init(uint8_t com_interface) {
 #if USE_UART
     // Selects the requested interface for future actions
     if (com_interface == SAM_BA_INTERFACE_USART) {
         b_sam_ba_interface_usart = true;
+    }
+#endif
+
+#if USE_ETHERNET
+    // Selects the requested interface for future actions
+    if (com_interface == SAM_BA_INTERFACE_ETHERNET) {
+        b_sam_ba_interface_ethernet = true;
     }
 #endif
 }

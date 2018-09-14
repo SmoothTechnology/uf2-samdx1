@@ -10,5 +10,6 @@
 #endif
 
 void ethernet_init( void );
+void sam_ba_monitor_ethernet( void );
 
 #endif

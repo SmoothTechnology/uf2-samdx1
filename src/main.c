@@ -75,6 +75,7 @@
 */
 
 #include "uf2.h"
+#include "wizchip_conf.h"
 
 static void check_start_application(void);
 
@@ -177,7 +178,7 @@ int main(void) {
     assert(FLASH_PAGE_SIZE * NVMCTRL->PARAM.bit.NVMP == FLASH_SIZE);
 
     /* Jump in application if condition is satisfied */
-    check_start_application();
+    //check_start_application();
 
     /* We have determined we should stay in the monitor. */
     /* System initialization */
@@ -239,6 +240,19 @@ int main(void) {
             }
         }
 #endif
+
+#if USE_ETHERNET
+        if (!main_b_cdc_enable) { //TODO: check ethernet has been opened
+            RGBLED_set_color(COLOR_UART);
+
+            //sam_ba_monitor_init(SAM_BA_INTERFACE_ETHERNET); doesn't even do anything tbh
+            /* SAM-BA on ethernet loop */
+            while (1) {
+            	sam_ba_monitor_ethernet();
+            }
+        }
+#endif
+
 #else // no monitor
         if (main_b_cdc_enable) {
             process_msc();

@@ -543,6 +543,7 @@ void Reset_Handler(void)
  */
 void Dummy_Handler(void)
 {
+	__BKPT();
         while (1) {
         }
 }

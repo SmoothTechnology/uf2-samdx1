@@ -34,6 +34,8 @@
 
 #define SAM_BA_VERSION "1.1"
 
+/* Selects ethernet as the communication interface of the monitor */
+#define SAM_BA_INTERFACE_ETHERNET 1
 /* Selects USART as the communication interface of the monitor */
 #define SAM_BA_INTERFACE_USART 1
 /* Selects USB as the communication interface of the monitor */

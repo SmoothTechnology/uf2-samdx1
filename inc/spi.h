@@ -78,5 +78,6 @@ void setDataOrderSPI( Sercom * sercom, SercomDataOrder dataOrder) ;
 SercomDataOrder getDataOrderSPI( Sercom * sercom ) ;
 void setBaudrateSPI( Sercom * sercom, uint8_t divider) ;
 void setClockModeSPI( Sercom * sercom, SercomSpiClockMode clockMode) ;
+uint8_t transferDataSPI( Sercom *sercom, uint8_t data) ;
 
 #endif
