@@ -11,5 +11,6 @@
 
 void ethernet_init( void );
 void sam_ba_monitor_ethernet( void );
+bool ethernet_sharp_received( void );
 
 #endif

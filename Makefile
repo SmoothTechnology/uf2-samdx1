@@ -6,7 +6,7 @@ ifeq ($(CHIP_FAMILY), samd21)
 COMMON_FLAGS = -mthumb -mcpu=cortex-m0plus -Os -g -DSAMD21
 endif
 ifeq ($(CHIP_FAMILY), samd51)
-COMMON_FLAGS = -mthumb -mcpu=cortex-m4 -O2 -g -DSAMD51
+COMMON_FLAGS = -mthumb -mcpu=cortex-m4 -Os -g -DSAMD51
 endif
 WFLAGS = \
 -Wall -Wstrict-prototypes \
@@ -38,8 +38,8 @@ endif
 
 ifeq ($(CHIP_FAMILY), samd51)
 
-LINKER_SCRIPT=scripts/samd51j19a_ethernet.ld
-BOOTLOADER_SIZE=32768
+LINKER_SCRIPT=scripts/samd51j19a.ld
+BOOTLOADER_SIZE=16384
 SELF_LINKER_SCRIPT=scripts/samd51j19a_self.ld
 endif
 

@@ -195,15 +195,11 @@ int main(void) {
 
     logmsg("Before main loop");
 
-    delay(15);
-
-    usb_init();
-
-    delay(15);
-
 #if USE_ETHERNET
     ethernet_init();
 #endif
+
+    usb_init();
 
     // not enumerated yet
     RGBLED_set_color(COLOR_START);
@@ -247,7 +243,7 @@ int main(void) {
 #endif
 
 #if USE_ETHERNET
-        if (!main_b_cdc_enable) { //TODO: check ethernet has been opened
+        if (!main_b_cdc_enable && ethernet_sharp_received()) {
             RGBLED_set_color(COLOR_UART);
 
             //sam_ba_monitor_init(SAM_BA_INTERFACE_ETHERNET); doesn't even do anything tbh

@@ -143,44 +143,22 @@ static uint8_t command, *ptr_data, *ptr;
 static uint8_t j;
 static uint32_t u32tmp;
 
+bool ethernet_sharp_received( void ){
+	length = read_udp(_sock, gDATABUF, PORTNUM);
+	if (length < 0)
+	{
+		//TODO: maybe deal with this fail somehow idk
+		__BKPT();
+	}
+	else if(length > 0 && gDATABUF[0] == '#')
+	{
+		return true;
+	}
+	return false;
+}
+
 void sam_ba_monitor_ethernet( void )
 {
-	if(gWIZNETINFO.dhcp == NETINFO_DHCP)
-	{
-		switch(DHCP_run())
-		{
-			case DHCP_IP_ASSIGN:
-			case DHCP_IP_CHANGED:
-				/* If this block empty, act with default_ip_assign & default_ip_update */
-				//
-				// This example calls my_ip_assign in the two case.
-				//
-				// Add to ...
-				//
-				break;
-			case DHCP_IP_LEASED:
-				//
-				// TODO: insert user's code here
-				__BKPT();
-				//
-				break;
-			case DHCP_FAILED:
-				/* ===== Example pseudo code =====  */
-				// The below code can be replaced your code or omitted.
-				// if omitted, retry to process DHCP
-				my_dhcp_retry++;
-				if(my_dhcp_retry > MY_MAX_DHCP_RETRY)
-				{
-					gWIZNETINFO.dhcp = NETINFO_STATIC;
-					DHCP_stop();      // if restart, recall DHCP_init()
-					__BKPT();
-					my_dhcp_retry = 0;
-				}
-				break;
-			default:
-				break;
-		}
-	}
 
 	ptr_data = NULL;
 	command = 'z';
