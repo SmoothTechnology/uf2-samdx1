@@ -42,6 +42,8 @@ void flash_write_words(uint32_t *dst, uint32_t *src, uint32_t n_words) {
         uint32_t len = 4 < n_words ? 4 : n_words;
 
         wait_ready();
+        if(NVMCTRL->INTFLAG.reg > 1) __BKPT();
+
         for (uint32_t i = 0; i < 4; i++) {
             if (i < len) {
                 dst[i] = src[i];

@@ -118,11 +118,11 @@ void call_applet(uint32_t address) {
     __set_MSP(sp);
 }
 
-uint32_t current_number;
-uint32_t i, length;
-uint8_t command, *ptr_data, *ptr, data[SIZEBUFMAX + 1];
-uint8_t j;
-uint32_t u32tmp;
+static uint32_t current_number;
+static uint32_t i, length;
+static uint8_t command, *ptr_data, *ptr, data[SIZEBUFMAX + 1];
+static uint8_t j;
+static uint32_t u32tmp;
 
 // Prints a 32-bit integer in hex.
 void put_uint32(uint32_t n) {

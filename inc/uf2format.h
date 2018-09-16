@@ -7,11 +7,15 @@
 // All entries are little endian.
 
 // if you increase that, you will also need to update the linker script file
+#if USE_ETHERNET
+#define APP_START_ADDRESS 0x00008000
+#else
 #ifdef SAMD21
 #define APP_START_ADDRESS 0x00002000
 #endif
 #ifdef SAMD51
 #define APP_START_ADDRESS 0x00004000
+#endif
 #endif
 
 #define UF2_MAGIC_START0 0x0A324655UL // "UF2\n"

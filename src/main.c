@@ -136,6 +136,7 @@ static void check_start_application(void) {
     }
 
     LED_MSC_OFF();
+
 #if defined(__SAMD21E18A__)
     RGBLED_set_color(COLOR_LEAVE);
 #endif
@@ -178,7 +179,7 @@ int main(void) {
     assert(FLASH_PAGE_SIZE * NVMCTRL->PARAM.bit.NVMP == FLASH_SIZE);
 
     /* Jump in application if condition is satisfied */
-    //check_start_application();
+    check_start_application();
 
     /* We have determined we should stay in the monitor. */
     /* System initialization */
@@ -194,7 +195,11 @@ int main(void) {
 
     logmsg("Before main loop");
 
+    delay(15);
+
     usb_init();
+
+    delay(15);
 
 #if USE_ETHERNET
     ethernet_init();

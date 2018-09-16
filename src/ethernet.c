@@ -9,7 +9,10 @@
 //////////////////////////////////////////////////
 
 #define DATA_BUF_SIZE   2048
-uint8_t gDATABUF[DATA_BUF_SIZE];
+static uint8_t gDATABUF[DATA_BUF_SIZE];
+static uint32_t tmpPageBuf[1024/4];
+
+static const char fullVersion[] = "v" SAM_BA_VERSION " [Arduino:XYZ] " __DATE__ " " __TIME__ "\n\r";
 
 wiz_NetInfo gWIZNETINFO = { .mac = {0x00, 0x08, 0xdc, 0xab, 0xcd, 0xef},
                             .ip = {192, 168, 1, 177}, //TODO: the IP (and MAC?) address should be loaded from flash USER PAGE
@@ -25,6 +28,9 @@ wiz_NetInfo gWIZNETINFO = { .mac = {0x00, 0x08, 0xdc, 0xab, 0xcd, 0xef},
 static uint8_t my_dhcp_retry = 0;
 
 static uint8_t _sock = 0;
+
+static uint8_t  destip[4];
+static uint16_t destport;
 
 void  wizchip_select(void)
 {
@@ -58,6 +64,7 @@ static void W5500_Init( void )
     PINOP(WIZ_RST, OUTCLR);
     delay(15);
     PINOP(WIZ_RST, OUTSET);
+    delay(15);
 
 	reg_wizchip_cs_cbfunc(wizchip_select, wizchip_deselect);
 	reg_wizchip_spi_cbfunc(wizchip_read, wizchip_write);
@@ -74,8 +81,6 @@ int32_t read_udp(uint8_t sn, uint8_t* buf, uint16_t port)
 {
    int32_t  ret;
    uint16_t size;
-   uint8_t  destip[4];
-   uint16_t destport;
 
    switch(getSn_SR(sn))
    {
@@ -117,11 +122,29 @@ int32_t read_udp(uint8_t sn, uint8_t* buf, uint16_t port)
    return 0;
 }
 
+void sam_ba_putdata_ethernet(const uint8_t *data, uint16_t len){
+    uint16_t sentsize = 0;
+    int ret;
+    while(sentsize != len)
+    {
+       ret = sendto(_sock, (uint8_t *)data+sentsize, len-sentsize, destip, destport);
+       if(ret < 0)
+       {
+    	   __BKPT();
+       }
+       sentsize += ret;
+    }
+}
+
+static uint32_t current_number;
+static uint32_t i;
+static int32_t length = 0;
+static uint8_t command, *ptr_data, *ptr;
+static uint8_t j;
+static uint32_t u32tmp;
+
 void sam_ba_monitor_ethernet( void )
 {
-	uint32_t ret;
-	/* DHCP */
-	/* DHCP IP allocation and check the DHCP lease time (for IP renewal) */
 	if(gWIZNETINFO.dhcp == NETINFO_DHCP)
 	{
 		switch(DHCP_run())
@@ -159,14 +182,174 @@ void sam_ba_monitor_ethernet( void )
 		}
 	}
 
-	if ((ret = read_udp(_sock, gDATABUF, PORTNUM)) < 0) // TCP server loopback test
-	{
-		__BKPT();
-	}
+	ptr_data = NULL;
+	command = 'z';
 
-	if(ret > 0){
-		//TODO: process commands here
-		__BKPT();
+	// Start waiting some cmd
+	while (1) {
+		length = read_udp(_sock, gDATABUF, PORTNUM);
+		if (length < 0)
+		{
+			//TODO: maybe deal with this fail somehow idk
+			__BKPT();
+		}
+
+		gDATABUF[length] = 0;
+		if (length) {
+			logwrite("SERIAL:");
+			logmsg(data);
+			led_signal();
+		}
+		ptr = gDATABUF;
+		for (i = 0; i < length; i++) {
+			if (*ptr != 0xff) {
+				if (*ptr == '#') {
+#if USE_CDC_TERMINAL
+					if (b_terminal_mode) {
+						sam_ba_putdata_ethernet("\n\r", 2);
+					}
+#endif
+					if (command == 'S') {
+						// Check if some data are remaining in the "data" buffer
+						if (length > i) {
+							// Move current indexes to next avail data
+							// (currently ptr points to "#")
+							ptr++;
+							i++;
+							// We need to add first the remaining data of the
+							// current buffer already read from usb
+							// read a maximum of "current_number" bytes
+							u32tmp = (length - i) < current_number ? (length - i) : current_number;
+							memcpy(ptr_data, ptr, u32tmp);
+							i += u32tmp;
+							ptr += u32tmp;
+							j = u32tmp;
+						}
+						// update i with the data read from the buffer
+						i--;
+						ptr--;
+						// Do we expect more data ?
+						if (j < current_number)
+							cdc_read_buf_xmd(ptr_data, current_number - j);
+
+						__asm("nop");
+					} else if (command == 'R') {
+						//TODO: this
+						//sam_ba_putdata_ethernet_xmd(ptr_data, current_number);
+					} else if (command == 'O') {
+						*ptr_data = (char)current_number;
+					} else if (command == 'H') {
+						*((uint16_t *)(void *)ptr_data) = (uint16_t)current_number;
+					} else if (command == 'W') {
+						// detect BOSSA resetting us
+						if ((uint32_t)ptr_data == 0xE000ED0C)
+							RGBLED_set_color(COLOR_LEAVE);
+						*((int *)(void *)ptr_data) = current_number;
+					} else if (command == 'o') {
+						sam_ba_putdata_ethernet(ptr_data, 1);
+					} else if (command == 'h') {
+						current_number = *((uint16_t *)(void *)ptr_data);
+						sam_ba_putdata_ethernet((uint8_t *)&current_number, 2);
+					} else if (command == 'w') {
+						current_number = *((uint32_t *)(void *)ptr_data);
+						sam_ba_putdata_ethernet((uint8_t *)&current_number, 4);
+					} else if (command == 'G') {
+						call_applet(current_number);
+						if (b_sam_ba_interface_usart) {
+							sam_ba_putdata_ethernet("\x06", 1);
+						}
+					} else if (command == 'T') {
+#if USE_CDC_TERMINAL
+						b_terminal_mode = 1;
+						sam_ba_putdata_ethernet("\n\r", 2);
+#endif
+					} else if (command == 'N') {
+#if USE_CDC_TERMINAL
+						if (b_terminal_mode == 0) {
+							sam_ba_putdata_ethernet("\n\r", 2);
+						}
+						b_terminal_mode = 0;
+#endif
+					} else if (command == 'V') {
+						sam_ba_putdata_ethernet(fullVersion, sizeof(fullVersion));
+					} else if (command == 'X') {
+						// Syntax: X[ADDR]#
+						// Erase the flash memory starting from ADDR to the end
+						// of flash.
+
+						flash_erase_to_end((uint32_t *) current_number);
+
+						// Notify command completed
+						sam_ba_putdata_ethernet("X\n\r", 3);
+					} else if (command == 'Y') {
+						// This command writes the content of a buffer in SRAM
+						// into flash memory.
+
+						// Syntax: Y[ADDR],[SIZE]#[DATA]
+
+						ptr++; //move past the #
+						memcpy(tmpPageBuf, ptr, current_number); //sort of a mem waste but needs to be word aligned
+
+						flash_write_words((void *)ptr_data, tmpPageBuf, current_number / 4);
+
+						// Notify command completed
+						sam_ba_putdata_ethernet("Y\n\r", 3);
+					} else if (command == 'Z') {
+						// This command calculate CRC for a given area of
+						// memory.
+						// It's useful to quickly check if a transfer has been
+						// done
+						// successfully.
+
+						// Syntax: Z[START_ADDR],[SIZE]#
+						// Returns: Z[CRC]#
+
+						uint8_t *data = (uint8_t *)ptr_data;
+						uint32_t size = current_number;
+						uint16_t crc = 0;
+						uint32_t i = 0;
+						for (i = 0; i < size; i++)
+							crc = add_crc(*data++, crc);
+
+						//TODO: write this to the NVM user row
+
+						// TODO: Send response
+						/*
+						sam_ba_putdata_ethernet("Z", 1);
+						put_uint32(crc);
+						sam_ba_putdata_ethernet("#\n\r", 3);
+						*/
+					}
+
+					command = 'z';
+					current_number = 0;
+#if USE_CDC_TERMINAL
+					if (b_terminal_mode) {
+						sam_ba_putdata_ethernet(">", 1);
+					}
+#endif
+				} else {
+					if (('0' <= *ptr) && (*ptr <= '9')) {
+						current_number = (current_number << 4) | (*ptr - '0');
+
+					} else if (('A' <= *ptr) && (*ptr <= 'F')) {
+						current_number = (current_number << 4) | (*ptr - 'A' + 0xa);
+
+					} else if (('a' <= *ptr) && (*ptr <= 'f')) {
+						current_number = (current_number << 4) | (*ptr - 'a' + 0xa);
+
+					} else if (*ptr == ',') {
+						ptr_data = (uint8_t *)current_number;
+						current_number = 0;
+
+					} else {
+						command = *ptr;
+						current_number = 0;
+					}
+				}
+				ptr++;
+			}
+		}
 	}
 }
 
