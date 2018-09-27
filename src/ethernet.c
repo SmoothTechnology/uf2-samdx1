@@ -14,18 +14,14 @@ static uint32_t tmpPageBuf[1024/4];
 
 static const char fullVersion[] = "v" SAM_BA_VERSION " [Arduino:XYZ] " __DATE__ " " __TIME__ "\n\r";
 
+#define USER_IP_ADDR ((uint32_t *)(NVMCTRL_USER + 32UL))
+
 wiz_NetInfo gWIZNETINFO = { .mac = {0x00, 0x08, 0xdc, 0xab, 0xcd, 0xef},
                             .ip = {192, 168, 1, 177}, //TODO: the IP (and MAC?) address should be loaded from flash USER PAGE
                             .sn = {255, 255, 255, 0},
                             .gw = {192, 168, 1, 1},
                             .dns = {0, 0, 0, 0},
                             .dhcp = NETINFO_STATIC };
-
-////////////////
-// DHCP client//
-////////////////
-#define MY_MAX_DHCP_RETRY			2
-static uint8_t my_dhcp_retry = 0;
 
 static uint8_t _sock = 0;
 
@@ -268,6 +264,19 @@ void sam_ba_monitor_ethernet( void )
 						ptr++; //move past the #
 						memcpy(tmpPageBuf, ptr, current_number); //sort of a mem waste but needs to be word aligned
 
+						uint32_t *addr = (uint32_t *)ptr_data;
+						if(addr == USER_IP_ADDR){
+							//write this to the user page
+						    uint32_t usr_page[33];
+						    memcpy(usr_page, (const uint32_t *)NVMCTRL_USER, 32*sizeof(uint32_t));
+						    memcpy(usr_page+32, tmpPageBuf, sizeof(uint32_t));
+
+						    NVMCTRL->ADDR.reg = NVMCTRL_USER;
+							NVMCTRL->CTRLB.reg = NVMCTRL_CTRLB_CMDEX_KEY | NVMCTRL_CTRLB_CMD_EP;
+							while (NVMCTRL->STATUS.bit.READY == 0);
+						    flash_write_words((uint32_t *)NVMCTRL_USER, usr_page, 33);
+						}
+
 						flash_write_words((void *)ptr_data, tmpPageBuf, current_number / 4);
 
 						// Notify command completed
@@ -371,6 +380,12 @@ void ethernet_init( void )
 
     W5500_Init();
     delay(15);
+
+    //check for a user entered IP
+    if(*USER_IP_ADDR != 0xFFFFFFFF){
+    	memcpy(&gWIZNETINFO.ip, USER_IP_ADDR, 4);
+    }
+
     ctlnetwork(CN_SET_NETINFO, (void*) &gWIZNETINFO);
 
     //initialize UDP
