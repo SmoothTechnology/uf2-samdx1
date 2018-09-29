@@ -14,10 +14,8 @@ static uint32_t tmpPageBuf[1024/4];
 
 static const char fullVersion[] = "v" SAM_BA_VERSION " [Arduino:XYZ] " __DATE__ " " __TIME__ "\n\r";
 
-#define USER_IP_ADDR ((uint32_t *)(NVMCTRL_USER + 32UL))
-
 wiz_NetInfo gWIZNETINFO = { .mac = {0x00, 0x08, 0xdc, 0xab, 0xcd, 0xef},
-                            .ip = {192, 168, 1, 177}, //TODO: the IP (and MAC?) address should be loaded from flash USER PAGE
+                            .ip = {192, 168, 1, 177},
                             .sn = {255, 255, 255, 0},
                             .gw = {192, 168, 1, 1},
                             .dns = {0, 0, 0, 0},
@@ -135,7 +133,8 @@ void sam_ba_putdata_ethernet(const uint8_t *data, uint16_t len){
 static uint32_t current_number;
 static uint32_t i;
 static int32_t length = 0;
-static uint8_t command, *ptr_data, *ptr;
+static uint8_t command, *ptr;
+static uint8_t *ptr_data __attribute__((aligned(4)));
 static uint8_t j;
 static uint32_t u32tmp;
 
@@ -265,19 +264,13 @@ void sam_ba_monitor_ethernet( void )
 						memcpy(tmpPageBuf, ptr, current_number); //sort of a mem waste but needs to be word aligned
 
 						uint32_t *addr = (uint32_t *)ptr_data;
-						if(addr == USER_IP_ADDR){
+						if(addr == USER_IP_ADDR || addr == USER_CRC){
 							//write this to the user page
-						    uint32_t usr_page[33];
-						    memcpy(usr_page, (const uint32_t *)NVMCTRL_USER, 32*sizeof(uint32_t));
-						    memcpy(usr_page+32, tmpPageBuf, sizeof(uint32_t));
-
-						    NVMCTRL->ADDR.reg = NVMCTRL_USER;
-							NVMCTRL->CTRLB.reg = NVMCTRL_CTRLB_CMDEX_KEY | NVMCTRL_CTRLB_CMD_EP;
-							while (NVMCTRL->STATUS.bit.READY == 0);
-						    flash_write_words((uint32_t *)NVMCTRL_USER, usr_page, 33);
+						    write_user_page((void *)ptr_data, tmpPageBuf, current_number);
 						}
-
-						flash_write_words((void *)ptr_data, tmpPageBuf, current_number / 4);
+						else{
+							flash_write_words((void *)ptr_data, tmpPageBuf, current_number / 4);
+						}
 
 						// Notify command completed
 						sam_ba_putdata_ethernet("Y\n\r", 3);
@@ -291,21 +284,12 @@ void sam_ba_monitor_ethernet( void )
 						// Syntax: Z[START_ADDR],[SIZE]#
 						// Returns: Z[CRC]#
 
-						uint8_t *data = (uint8_t *)ptr_data;
-						uint32_t size = current_number;
-						uint16_t crc = 0;
-						uint32_t i = 0;
-						for (i = 0; i < size; i++)
-							crc = add_crc(*data++, crc);
+						char buf[12] = {'Z',0,0,0,0,0,0,0,0,'#','\n','\r'};
 
-						//TODO: write this to the NVM user row
+						uint32_t crc = calculate_crc((void *)ptr_data, current_number);
 
-						// TODO: Send response
-						/*
-						sam_ba_putdata_ethernet("Z", 1);
-						put_uint32(crc);
-						sam_ba_putdata_ethernet("#\n\r", 3);
-						*/
+						writeNum(buf+1, crc, true);
+						sam_ba_putdata_ethernet(buf , 12);
 					}
 
 					command = 'z';

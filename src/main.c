@@ -122,6 +122,16 @@ static void check_start_application(void) {
     }
 #endif
 
+    if(*((uint32_t *)(USER_CRC + 1)) == CRC_MAGIC){
+    	//A program has been uploaded by something that doesn't support CRC calc.
+    	//calculate one now and record it
+    	uint32_t crc = calculate_crc((uint32_t *)APP_START_ADDRESS, *USER_CRC);
+    	write_user_page(USER_CRC + 1, &crc, sizeof(uint32_t));
+    }
+    else if(calculate_crc((uint32_t *)APP_START_ADDRESS, *USER_CRC) != *((uint32_t *)(USER_CRC + 1))){
+		return; //stay in bootloader if CRC doesn't match
+	}
+
     if (RESET_CONTROLLER->RCAUSE.bit.POR) {
         *DBL_TAP_PTR = 0;
     } else if (*DBL_TAP_PTR == DBL_TAP_MAGIC) {

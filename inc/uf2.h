@@ -200,6 +200,9 @@ void flash_erase_to_end(uint32_t *start_address);
 void flash_write_words(uint32_t *dst, uint32_t *src, uint32_t n_words);
 void copy_words(uint32_t *dst, uint32_t *src, uint32_t n_words);
 
+void write_user_page(uint32_t *addr, uint32_t *src, uint32_t sz);
+uint32_t calculate_crc(uint32_t *addr, uint32_t sz);
+
 int writeNum(char *buf, uint32_t n, bool full);
 
 void process_hid(void);
@@ -234,13 +237,19 @@ void padded_memcpy(char *dst, const char *src, int len);
 #define DBL_TAP_MAGIC 0xf01669ef // Randomly selected, adjusted to have first and last bit set
 #define DBL_TAP_MAGIC_QUICK_BOOT 0xf02669ef
 
+#define CRC_MAGIC 0x00001234
+
 #if USE_SINGLE_RESET
 #define SINGLE_RESET() (*((uint32_t *)0x20B4) == 0x87eeb07c)
 #endif
 
+#define USER_IP_ADDR ((uint32_t *)(NVMCTRL_USER + 32UL))
+#define USER_CRC ((uint32_t *)(NVMCTRL_USER + 36UL))
+
 void resetIntoApp(void);
 void resetIntoBootloader(void);
 void system_init(void);
+void setCRCMagic(void);
 
 #define LED_TICK led_tick
 

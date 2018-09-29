@@ -226,6 +226,9 @@ void sam_ba_monitor_run(void) {
 
                         flash_erase_to_end((uint32_t *) current_number);
 
+                        //put in a fake CRC because we're uploading via USB
+                        setCRCMagic();
+
                         // Notify command completed
                         cdc_write_buf("X\n\r", 3);
                     } else if (command == 'Y') {

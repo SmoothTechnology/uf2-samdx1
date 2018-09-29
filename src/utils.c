@@ -61,6 +61,11 @@ void resetIntoBootloader() {
     NVIC_SystemReset();
 }
 
+void setCRCMagic() {
+	uint32_t buf[] = {(FLASH_SIZE - APP_START_ADDRESS), CRC_MAGIC};
+	write_user_page(USER_CRC, buf, 8);
+}
+
 #if USE_LOGS
 struct LogStore logStoreUF2;
 

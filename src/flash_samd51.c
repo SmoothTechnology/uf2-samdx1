@@ -1,5 +1,7 @@
 #include "uf2.h"
 
+uint8_t tmp_usr_page[512];
+
 // this actually generates less code than a function
 #define wait_ready()                                                                               \
     while (NVMCTRL->STATUS.bit.READY == 0)                                                        \
@@ -61,6 +63,35 @@ void flash_write_words(uint32_t *dst, uint32_t *src, uint32_t n_words) {
         src += len;
         n_words -= len;
     }
+}
+
+void write_user_page(uint32_t *addr, uint32_t *src, uint32_t sz){
+	//write this to the user page
+    memcpy(tmp_usr_page, (const uint32_t *)NVMCTRL_USER, sizeof(tmp_usr_page));
+    memcpy(tmp_usr_page+((uint32_t)addr-NVMCTRL_USER), src, sz);
+
+    NVMCTRL->ADDR.reg = NVMCTRL_USER;
+	NVMCTRL->CTRLB.reg = NVMCTRL_CTRLB_CMDEX_KEY | NVMCTRL_CTRLB_CMD_EP;
+	while (NVMCTRL->STATUS.bit.READY == 0 || !NVMCTRL->INTFLAG.bit.DONE);
+
+    flash_write_words((uint32_t *)NVMCTRL_USER, (uint32_t *)tmp_usr_page, sizeof(tmp_usr_page)/4);
+}
+
+uint32_t calculate_crc(uint32_t *addr, uint32_t sz){
+	//enable writes to DSU
+	PAC->WRCTRL.reg = PAC_WRCTRL_PERID(32+1) | PAC_WRCTRL_KEY_CLR;
+
+	DSU->DATA.reg = 0xFFFFFFFF;
+	DSU->ADDR.bit.ADDR = (uint32_t)addr >> 2;
+	DSU->LENGTH.reg = sz;
+	DSU->STATUSA.reg = 0x1F;
+
+	DSU->CTRL.bit.CRC = 1; //start CRC
+
+	while(!DSU->STATUSA.bit.DONE);
+	//TODO: should we check for bus read errors?
+
+	return DSU->DATA.reg;
 }
 
 // On the SAMD51 we can only erase 4KiB blocks of 512 byte pages. To reduce wear
